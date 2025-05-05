@@ -11,4 +11,10 @@ pymongo==4.6.0
 pandas==2.1.1
 
 # Utilitaires
-python-dotenv==1.0.0 
+python-dotenv==1.0.0
+
+# Dépendances supplémentaires
+urllib3==2.0.7
+chardet==5.2.0
+idna==3.4
+certifi==2023.7.22 

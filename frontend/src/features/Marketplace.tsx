@@ -11,10 +11,12 @@ export const Marketplace = () => {
     sort_order: 'desc'
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('');
 
   // Requêtes pour les données
   const { data: categories, isLoading: isLoadingCategories, error: categoriesError } = useGetCategories();
-  const { data: sousCategories, isLoading: isLoadingSousCategories, error: sousCategoriesError } = useGetSousCategories(filters.categorie || '');
+  const { data: sousCategories, isLoading: isLoadingSousCategories, error: sousCategoriesError } = useGetSousCategories(selectedCategory);
   const { data: articlesData, isLoading: isLoadingArticles, error: articlesError } = useGetArticles(filters);
 
   // Afficher les erreurs en console pour le débogage
@@ -76,7 +78,40 @@ export const Marketplace = () => {
       sort_order: 'desc'
     });
     setSearchTerm('');
+    setSelectedCategory('');
+    setSelectedSubCategory('');
   };
+
+  // Mettre à jour les sous-catégories quand la catégorie change
+  useEffect(() => {
+    if (selectedCategory) {
+      setFilters(prev => ({ ...prev, categorie: selectedCategory }));
+      // Réinitialiser la sous-catégorie quand la catégorie change
+      setSelectedSubCategory('');
+      setFilters(prev => ({ ...prev, sous_categorie: undefined }));
+    } else {
+      setFilters(prev => {
+        const newFilters = { ...prev };
+        delete newFilters.categorie;
+        delete newFilters.sous_categorie;
+        return newFilters;
+      });
+      setSelectedSubCategory('');
+    }
+  }, [selectedCategory]);
+
+  // Mettre à jour les filtres quand la sous-catégorie change
+  useEffect(() => {
+    if (selectedSubCategory) {
+      setFilters(prev => ({ ...prev, sous_categorie: selectedSubCategory }));
+    } else {
+      setFilters(prev => {
+        const newFilters = { ...prev };
+        delete newFilters.sous_categorie;
+        return newFilters;
+      });
+    }
+  }, [selectedSubCategory]);
 
   // Fonction pour générer les pages de pagination
   const getPaginationItems = () => {
@@ -149,10 +184,14 @@ export const Marketplace = () => {
           
           {/* Catégorie et Sous-catégorie (une par ligne sur mobile, une colonne chacune sur desktop) */}
           <div>
+            <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 mb-1">
+              Catégorie
+            </label>
             <select
-              className="w-full p-2 border border-gray-300 rounded-md"
-              value={filters.categorie || ''}
-              onChange={(e) => applyFilters({ categorie: e.target.value || undefined, sous_categorie: undefined })}
+              id="category-select"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
               aria-label="Catégorie"
             >
               <option value="">Toutes les catégories</option>
@@ -163,11 +202,15 @@ export const Marketplace = () => {
           </div>
           
           <div>
+            <label htmlFor="subcategory-select" className="block text-sm font-medium text-gray-700 mb-1">
+              Sous-catégorie
+            </label>
             <select
-              className="w-full p-2 border border-gray-300 rounded-md"
-              value={filters.sous_categorie || ''}
-              onChange={(e) => applyFilters({ sous_categorie: e.target.value || undefined })}
-              disabled={!filters.categorie}
+              id="subcategory-select"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              value={selectedSubCategory}
+              onChange={(e) => setSelectedSubCategory(e.target.value)}
+              // disabled={!selectedCategory || isLoadingSousCategories}
               aria-label="Sous-catégorie"
             >
               <option value="">Toutes les sous-catégories</option>
@@ -175,6 +218,15 @@ export const Marketplace = () => {
                 <option key={`subcat-${index}`} value={subCat}>{subCat}</option>
               ))}
             </select>
+            {isLoadingSousCategories && (
+              <div className="text-sm text-gray-500 mt-1 flex items-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Chargement des sous-catégories...
+              </div>
+            )}
           </div>
         </div>
         

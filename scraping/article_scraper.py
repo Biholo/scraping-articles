@@ -69,6 +69,7 @@ class ArticleScraper:
 
             sous_categorie = soup.select_one('.favtag')
             sous_categorie = sous_categorie.text.strip() if sous_categorie else None
+            # Pause aléatoire pour éviter la détection
 
             # Utiliser la catégorie forcée si fournie
             categorie = categorie_forcee
@@ -132,6 +133,7 @@ class ArticleScraper:
                 image_principale=image_principale,
                 categorie=categorie,
                 tags=tags,
+                sous_categorie=sous_categorie,
                 images=images_dict
             )
             return article.to_dict()
@@ -170,65 +172,43 @@ class ArticleScraper:
 
             soup = BeautifulSoup(response.text, 'lxml')
             
-            # Essayer plusieurs sélecteurs potentiels pour le lien "page suivante"
-
-            next_link = soup.select_one('.nextpostslink')
+            # Essayer différents sélecteurs CSS pour trouver le lien vers la page suivante
+            next_link_selectors = [
+                'a.next.page-numbers',  # Sélecteur WordPress standard
+                'a.next',  # Sélecteur alternatif
+                '.pagination .next a',  # Sélecteur pour la pagination
+                '.nav-links .next a',  # Sélecteur WordPress alternatif
+                'a[rel="next"]'  # Sélecteur par attribut rel
+            ]
             
-            # Recherche plus générique
-            pagination_elements = soup.select('.pagination, .nav-links, .wp-pagenavi')
-            if pagination_elements:
-                logger.info(f"Élément(s) de pagination trouvé(s): {len(pagination_elements)}")
-                
-                for pagination in pagination_elements:
-                    # Examiner la structure et chercher le dernier lien qui pourrait être "suivant"
-                    links = pagination.select('a')
-                    if links:
-                        current_page_found = False
-                        
-                        # Afficher tous les liens de pagination pour déboguer
-                        for link in links:
-                            logger.debug(f"Lien de pagination: {link.get_text(strip=True)} - {link.get('href', '')}")
-                            
-                            # Chercher le lien actif actuel
-                            if 'current' in link.get('class', []) or 'active' in link.get('class', []):
-                                current_page_found = True
-                            # Si on a trouvé la page active, le prochain lien est "suivant"
-                            elif current_page_found and 'href' in link.attrs:
-                                logger.info(f"Page suivante trouvée après la page active: {link['href']}")
-                                return link['href']
-                        
-                        # Si on n'a pas trouvé via la méthode précédente, prendre le dernier lien
-                        last_link = links[-1]
-                        if 'href' in last_link.attrs:
-                            logger.info(f"Utilisation du dernier lien de pagination comme page suivante: {last_link['href']}")
-                            return last_link['href']
+            for selector in next_link_selectors:
+                next_link = soup.select_one(selector)
+                if next_link and 'href' in next_link.attrs:
+                    next_url = next_link['href']
+                    logger.info(f"Page suivante trouvée avec le sélecteur {selector}: {next_url}")
+                    return next_url
             
-            # Recherche par texte du lien
-            next_text_patterns = ['suivant', 'next', 'suiv', '>']
-            for pattern in next_text_patterns:
-                for link in soup.select('a'):
-                    link_text = link.get_text(strip=True).lower()
-                    if pattern in link_text and 'href' in link.attrs:
-                        logger.info(f"Page suivante trouvée par texte '{pattern}': {link['href']}")
-                        return link['href']
-            
-            # Essai avec une approche par URL
-            # Si l'URL actuelle se termine par un nombre, on peut essayer d'incrémenter ce nombre
+            # Si aucun sélecteur ne fonctionne, essayer d'extraire le numéro de page de l'URL
             import re
-            page_match = re.search(r'/page/(\d+)/?$', url_actuelle)
-            if page_match:
-                current_page = int(page_match.group(1))
-                next_page = current_page + 1
-                next_url = re.sub(r'/page/\d+/?$', f'/page/{next_page}/', url_actuelle)
-                logger.info(f"Construction de l'URL de la page suivante par incrémentation: {next_url}")
+            current_page = 1
+            if 'page/' in url_actuelle:
+                match = re.search(r'page/(\d+)', url_actuelle)
+                if match:
+                    current_page = int(match.group(1))
+            
+            # Construire l'URL de la page suivante
+            if current_page == 1:
+                next_url = f"{url_actuelle.rstrip('/')}/page/2/"
+            else:
+                next_url = re.sub(r'page/\d+', f'page/{current_page + 1}', url_actuelle)
+            
+            # Vérifier si la page suivante existe
+            response = self.session.head(next_url, timeout=self.timeout)
+            if response.status_code == 200:
+                logger.info(f"Page suivante construite: {next_url}")
                 return next_url
-            elif not '/page/' in url_actuelle:
-                # Si pas de numéro de page dans l'URL, essayer d'ajouter /page/2/
-                next_url = url_actuelle.rstrip('/') + '/page/2/'
-                logger.info(f"Construction de l'URL de la page suivante par ajout de /page/2/: {next_url}")
-                return next_url
-                
-            logger.info("Aucune page suivante trouvée - fin de la navigation")
+            
+            logger.info("Plus de pages à traiter")
             return None
 
         except Exception as e:

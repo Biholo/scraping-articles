@@ -29,7 +29,18 @@ class MarketplaceService {
     }
 
     public async getArticles(filters?: ArticleFilters): Promise<ArticleResponse> {
-        const response = await api.fetchRequest("/articles", "GET", filters || {});
+        // Convertir les filtres en query parameters
+        const queryParams = new URLSearchParams();
+        if (filters) {
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    queryParams.append(key, value.toString());
+                }
+            });
+        }
+        
+        const url = `/articles${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+        const response = await api.fetchRequest(url, "GET", null);
         return response;
     }
     

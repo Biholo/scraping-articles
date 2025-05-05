@@ -11,6 +11,10 @@ from typing import Dict, Any, Optional
 import datetime
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +29,12 @@ class DatabaseManager:
         
         Args:
             mongo_uri: URI de connexion à MongoDB (si None, utilise la variable d'environnement MONGO_URI)
-            db_name: Nom de la base de données (si None, utilise la variable d'environnement MONGO_DB)
-            collection_name: Nom de la collection (si None, utilise la variable d'environnement MONGO_COLLECTION)
+            db_name: Nom de la base de données (si None, utilise la variable d'environnement DB_NAME)
+            collection_name: Nom de la collection (si None, utilise la variable d'environnement COLLECTION_NAME)
         """
-        self.mongo_uri = 'mongodb://localhost:27017/'
-        self.db_name = 'scraping_db'
-        self.collection_name = 'articles'
+        self.mongo_uri = mongo_uri or os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+        self.db_name = db_name or os.getenv('DB_NAME', 'scraping_db')
+        self.collection_name = collection_name or os.getenv('COLLECTION_NAME', 'articles')
         
         logger.info(f"Connexion à MongoDB: {self.mongo_uri}, DB: {self.db_name}, Collection: {self.collection_name}")
         
