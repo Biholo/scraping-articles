@@ -103,7 +103,8 @@ class ArticleScraper:
                     if meta_category and meta_category.get('content'):
                         categorie = meta_category.get('content')
 
-            image_principale = soup.select_one('.article-hat-img img')
+            # Récupération de l'image principale avec la classe wp-post-image
+            image_principale = soup.select_one('img.wp-post-image')
             image_principale = image_principale['src'] if image_principale and 'src' in image_principale.attrs else None
 
             date_element = soup.select_one('.posted-on time.entry-date')
@@ -118,11 +119,20 @@ class ArticleScraper:
             tags = [tag.text.strip() for tag in soup.select('.tags-list a')]
 
             images_dict = []
+            has_real_image = False
             for img in soup.select('article img'):
                 src = img.get('src')
                 alt = img.get('alt', '')
                 if src:
-                    images_dict.append({'url': src, 'alt': alt})
+                    if not src.startswith('data:image/svg+xml'):
+                        images_dict.append({'url': src, 'alt': alt})
+                        has_real_image = True
+                    elif not has_real_image:  # Si c'est un SVG et qu'on n'a pas encore d'image réelle
+                        images_dict.append({'url': src, 'alt': alt})
+
+            # Si aucune image n'a été trouvée, utiliser l'image principale comme fallback
+            if not images_dict and image_principale:
+                images_dict.append({'url': image_principale, 'alt': 'Image principale'})
 
             article = Article(
                 titre=titre,
